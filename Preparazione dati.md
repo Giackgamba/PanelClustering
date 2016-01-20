@@ -1,16 +1,12 @@
-Creazione di 6 cluster dei comuni trentini (confini 2016)
+# Creazione di cluster dei comuni trentini (confini 2016)
 
 Variabili considerate:
 * Dimensione demografiche (solo famiglie)
 * Indice di vecchiaia (solo famiglie)
 * Percentuale di stranieri
 * Iscritti in I° sezione APIA
-* Percentuali addetti in ASIAUL sett. industriale
-* Percentuali addetti in ASIAUL sett. costruzioni
-* Percentuali addetti in ASIAUL sett. commercio/tursimo
-* Percentuali addetti in ASIAUL sett. altro
-* Percentuale laureati 30-34
-* Percentuale diplomati 25-64
+* Percentuali addetti in ASIAUL sett. industriale e costruzioni
+* Presenze turistiche
 
 
 
@@ -20,10 +16,8 @@ library(RODBC)
 library(dplyr)
 ```
 
-```r
-usr <- 'sa'
-psw <- 'Trento1921'
 
+```r
 conn <- odbcConnect('produzione.dati', usr, psw)
 
 trrSoppressi <- read.csv2('comuni soppressi.csv', sep = ',', 
@@ -131,7 +125,7 @@ diplomati <- sqlQuery(conn, 'SELECT comu, SUM(popolazi) valore
                     GROUP BY comu' )
 
 presenze <- sqlQuery(conn, 'SELECT comu, SUM(presenze)/3 valore
-                    FROM dati..tudmoalb
+                    FROM dati..tudmotot
                     WHERE anno BETWEEN 2012 AND 2014
                     GROUP BY comu')
 
@@ -230,6 +224,4 @@ ind <- data.frame(ampiezza) %>%
     filter(comuat != 205) %>%
     na.omit()
 ```
-
-Dopo l'analisi cluster indice di laureati e indice di diplomati sono stati esclusi dal dataset in quanto non portano ad alcuna significativa ulteriore suddivisione poichè si concentrano principalmente nel comune di Trento che è già "autonomo"
 
