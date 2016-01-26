@@ -1,3 +1,11 @@
 .Rproj.user
 .Rhistory
 .RData
+password.R
+*.html
+*.txt
+*.png
+*.qgs
+*.pdf
+*.qgs~
+*.pngw
