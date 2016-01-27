@@ -2,11 +2,11 @@
 
 Variabili considerate:
 * Dimensione demografiche (solo famiglie)
-* Indice di vecchiaia (solo famiglie)
+* Indice di vecchiaia
 * Percentuale di stranieri
-* Iscritti in I° sezione APIA
+* Iscritti in I' sezione APIA
 * Percentuali addetti in ASIAUL sett. industriale e costruzioni
-* Presenze turistiche
+* Presenze turistiche in strutture alberghiere e complementari
 
 
 
@@ -14,214 +14,237 @@ Variabili considerate:
 ```r
 library(RODBC)
 library(dplyr)
+library(tidyr)
+source('password.R')
 ```
+
+## Elenco dei comuni ai confini 2016
 
 
 ```r
-conn <- odbcConnect('produzione.dati', usr, psw)
-
-trrSoppressi <- read.csv2('comuni soppressi.csv', sep = ',', 
-                          header = T, stringsAsFactors = F) %>%
-    select(comu = comune, comuat = nuovo.codice, 
-           descriz = denominazione) 
-
-trrNuovi <- read.csv2('comuni nuovi.csv', sep = ',', 
-                      header = T, stringsAsFactors = F) %>% 
-    select(comu = comune, descriz = denominazione) %>%
-    mutate(comuat = comu)
-
-trr <- sqlQuery(conn, 'SELECT * FROM dati..trrcomat') 
-# %>%
-#     full_join(trrSoppressi, by = 'comu') %>%
-#     mutate(comuat = ifelse(
-#         is.na(comuat.y), yes = comuat.x, no = comuat.y)
-#         ) %>%
-#     mutate(descriz = descriz.x) %>%
-#     select(comu, comuat, descriz) %>%
-#     bind_rows(trrNuovi) %>%
-#     filter(comu %in% 1:998) %>%
-#     distinct() %>%
-#     arrange(comu)
-
+trr <- sqlQuery(myConnection(), 'SELECT * FROM dati..trrcomat') 
 odbcCloseAll()
-rm(trrSoppressi)
-rm(trrNuovi)
 ```
 
-Estrazione dei dati da SQL Server
+## Estrazione dei dati da SQL Server
 
 
 ```r
-conn <- odbcConnect('produzione.dati', usr, psw)
+conn <- myConnection()
 
-ampiezza <- sqlQuery(conn, 'SELECT comu, SUM(compfam) valore
-                    FROM dati..dmdfaco 
-                    WHERE anno = 2014
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY comu' )
+popolazione <- sqlQuery(conn, 'SELECT anno, comu, SUM(compfam) valore
+                        FROM dati..dmdfaco 
+                        WHERE anno IN (2009,2014)
+                        AND comu BETWEEN 1 AND 998
+                        GROUP BY anno, comu' )
 
-anziani <- sqlQuery(conn, 'SELECT comu, SUM(popolazi) valore
+anziani <- sqlQuery(conn, 'SELECT anno, comu, SUM(popolazi) valore
                     FROM dati..dmdeta 
-                    WHERE anno = 2014 AND eta >= 65
+                    WHERE anno IN (2009,2014) AND eta >= 65
                     AND comu BETWEEN 1 AND 998
-                    GROUP BY comu' )
+                    GROUP BY anno, comu' )
 
-giovani <- sqlQuery(conn, 'SELECT comu, SUM(popolazi) valore 
+giovani <- sqlQuery(conn, 'SELECT anno, comu, SUM(popolazi) valore 
                     FROM dati..dmdeta
-                    WHERE anno = 2014 AND eta <= 14
+                    WHERE anno IN (2009,2014) AND eta <= 14
                     AND comu BETWEEN 1 AND 998
-                    GROUP BY comu' )
+                    GROUP BY anno, comu' )
 
-stranieri <- sqlQuery(conn, 'SELECT comu, SUM(numero) valore 
-                    FROM dati..dmdstreta 
-                    WHERE anno = 2014
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY comu' )
+stranieri <- sqlQuery(conn, 'SELECT anno, comu, SUM(numero) valore 
+                      FROM dati..dmdstreta 
+                      WHERE anno IN (2009,2014)
+                      AND comu BETWEEN 1 AND 998
+                      GROUP BY anno, comu' )
 
-agricoltori <- sqlQuery(conn, 'SELECT comu, SUM(numero) valore 
-                    FROM dati..agdapiacle
-                    WHERE anno = 2014 AND sezione = 1
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY comu' )
+agricoltura <- sqlQuery(conn, 'SELECT anno, comu, SUM(numero) valore 
+                        FROM dati..agdapiagen
+                        WHERE anno IN (2010,2014) AND sezione = 1
+                        AND comu BETWEEN 1 AND 998
+                        GROUP BY anno, comu' )
 
-addettiInd <- sqlQuery(conn, 'SELECT comu, SUM(add_ul) valore 
-                    FROM dati..ecdasiaul
-                    WHERE anno = 2012 AND Settore = 1
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY comu' )
+addettiInd <- sqlQuery(conn, 'SELECT anno, comu, SUM(add_ul) valore 
+                       FROM dati..ecdasiaul
+                       WHERE anno IN (2007,2012) AND Settore IN (1, 2)
+                       AND comu BETWEEN 1 AND 998
+                       GROUP BY anno, comu' )
 
-addettiCostr <- sqlQuery(conn, 'SELECT comu, SUM(add_ul) valore 
-                    FROM dati..ecdasiaul
-                    WHERE anno = 2012 AND Settore = 2
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY comu' )
+presenze <- sqlQuery(conn, 'SELECT anno, comu, SUM(presenze) valore
+                     FROM dati..tudmotot
+                     WHERE anno IN (2009,2014) AND tuccompar IN (0, 1)
+                     GROUP BY anno, comu')
+```
 
-addettiComTur <- sqlQuery(conn, 'SELECT comu, SUM(add_ul) valore 
-                    FROM dati..ecdasiaul
-                    WHERE anno = 2012 AND Settore IN (3, 4)
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY comu' )
+altitudine non è stata ancora salvata in DB, leggo da csv
 
-addettiAltro <- sqlQuery(conn, 'SELECT comu, SUM(add_ul) valore 
-                    FROM dati..ecdasiaul
-                    WHERE anno = 2012 AND Settore IN (5, 6)
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY comu' )
 
-addettiTot <- sqlQuery(conn, 'SELECT comu, SUM(add_ul) valore 
-                    FROM dati..ecdasiaul
-                    WHERE anno = 2012
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY comu' )
-
-laureati <- sqlQuery(conn, 'SELECT comu, SUM(popolazi) valore
-                    FROM dati..dmd1tits
-                    WHERE dmc1tits >= 7
-                    GROUP BY comu' )
-
-diplomati <- sqlQuery(conn, 'SELECT comu, SUM(popolazi) valore
-                    FROM dati..dmd1tits
-                    WHERE dmc1tits BETWEEN 5 AND 6
-                    GROUP BY comu' )
-
-presenze <- sqlQuery(conn, 'SELECT comu, SUM(presenze)/3 valore
-                    FROM dati..tudmotot
-                    WHERE anno BETWEEN 2012 AND 2014
-                    GROUP BY comu')
-
-popMedia <- sqlQuery(conn, 'SELECT comu, SUM(compfam)/3 valore
-                    FROM dati..dmdfaco 
-                    WHERE anno BETWEEN 2012 AND 2014
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY comu' )
-
-altitudine <- sqlQuery(conn, 'SELECT altcentr FROM dati..trdcgeo3')
+```r
+altitudine <- read.csv2('trdcgeo4.csv', 
+                        header = T, 
+                        stringsAsFactors = F, 
+                        sep = ';',
+                        quote = '"',
+                        dec = ',',
+                        colClasses = c('integer', 
+                                       'character', 
+                                       'numeric', 
+                                       'numeric')
+)
 
 odbcCloseAll()
 ```
 
-Trasformazioni ai nuovi confini dei dati assoluti
+## Trasformazioni ai nuovi confini dei dati assoluti
 
 
 
 ```r
-as.nuoviConfini <- function(x) {
-    name <- deparse(substitute(x))
+as.nuoviConfini <- function(x, year) {
+    name <- paste0(deparse(substitute(x)), substr(year, 3, 4))
     x <- x %>%
-        full_join(trr, by = 'comu') %>%
-        group_by(comuat) %>%
+        filter(anno == year) %>%
+        left_join(trr, by = 'comu') %>%
+        group_by(anno, comuat) %>%
         summarize(name = sum(valore, na.rm = T)) %>%
-        ungroup() 
+        ungroup() %>%
+        select(2:3)
     colnames(x) <- c('comuat', name)
     return(x)
 }
-
-ampiezza <- as.nuoviConfini(ampiezza)
-
-anziani <- as.nuoviConfini(anziani)
-
-giovani <-  as.nuoviConfini(giovani)
-
-stranieri <-  as.nuoviConfini(stranieri)
-
-agricoltori <- as.nuoviConfini(agricoltori)
-
-addettiInd <- as.nuoviConfini(addettiInd)
-
-addettiCostr <- as.nuoviConfini(addettiCostr)
-
-# addettiComTur <- as.nuoviConfini(addettiComTur)
-# 
-# addettiAltro <- as.nuoviConfini(addettiAltro)
-# 
-# addettiTot <- as.nuoviConfini(addettiTot)
-# 
-# laureati <- as.nuoviConfini(laureati)
-# 
-# diplomati <- as.nuoviConfini(diplomati)
-
-presenze <- as.nuoviConfini(presenze)
-
-popMedia <- as.nuoviConfini(popMedia)
-
-#altitudine <- as.nuoviConfini(altitudine)
 ```
 
-Costruzione data.frame contenente indicatori
-
+### Dataset al 2009 (o primo anno)
 
 
 ```r
-ind <- data.frame(ampiezza) %>%
-    full_join(anziani, by = 'comuat') %>%
-    full_join(giovani, by = 'comuat') %>%
-    full_join(stranieri, by = 'comuat') %>%
-    full_join(agricoltori, by = 'comuat') %>%
-    full_join(addettiInd, by = 'comuat') %>%
-    full_join(addettiCostr, by = 'comuat') %>%
-    full_join(presenze, by = 'comuat') %>%
-    full_join(popMedia, by = 'comuat') %>%
-#     full_join(addettiComTur, by = 'comuat') %>%
-#     full_join(addettiAltro, by = 'comuat') %>%
-#     full_join(addettiTot, by = 'comuat') %>%
-#     full_join(laureati, by = 'comuat') %>%
-#     full_join(diplomati, by = 'comuat') %>%
-    mutate(indVec = anziani / giovani * 100, 
-           indStra = stranieri / ampiezza * 100,
-           indAgri = agricoltori / ampiezza * 100, 
-           indInd = (addettiInd + addettiCostr) / ampiezza * 100,
-           indTur = presenze / popMedia * 100
-#           ,
-#           indAlt = ifelse(altitudine>600, 'alto', 'basso')
-#           indCostr = addettiCostr / addettiTot * 100,
-#           indComTur = addettiComTur / addettiTot * 100,
-#           indAltro = addettiAltro / addettiTot * 100,
-#            indLau = laureati / ampiezza * 100,
-#            indDip = diplomati / ampiezza * 100
-            
-           ) %>%
-    select(comuat, ampiezza, starts_with('ind')) %>%
-    filter(comuat != 205) %>%
-    na.omit()
+popolazione09 <- as.nuoviConfini(popolazione, 2009)
+
+anziani09 <- as.nuoviConfini(anziani, 2009)
+
+giovani09 <-  as.nuoviConfini(giovani, 2009)
+
+stranieri09 <-  as.nuoviConfini(stranieri, 2009)
+
+agricoltura10 <- as.nuoviConfini(agricoltura, 2010)
+
+addettiInd07 <- as.nuoviConfini(addettiInd, 2007)
+
+presenze09 <- as.nuoviConfini(presenze, 2009)
+```
+
+### Dataset al 2014 (o ultimo anno)
+
+
+```r
+popolazione14 <- as.nuoviConfini(popolazione, 2014)
+
+anziani14 <- as.nuoviConfini(anziani, 2014)
+
+giovani14 <-  as.nuoviConfini(giovani, 2014)
+
+stranieri14 <-  as.nuoviConfini(stranieri, 2014)
+
+agricoltura14 <- as.nuoviConfini(agricoltura, 2014)
+
+addettiInd12 <- as.nuoviConfini(addettiInd, 2012)
+
+presenze14 <- as.nuoviConfini(presenze, 2014)
+```
+
+### Costruzione data.frame contenente indicatori
+Dal dataset elimino il comune di Trento (205) in quanto 
+chiaro outlier che potrebbe dare problemi (hint: li da) nella 
+standardizzazione delle variabili
+
+
+```r
+ind <- data.frame(popolazione14) %>%
+    full_join(anziani14, by = 'comuat') %>%
+    full_join(giovani14, by = 'comuat') %>%
+    full_join(stranieri14, by = 'comuat') %>%
+    full_join(agricoltura14, by = 'comuat') %>%
+    full_join(addettiInd12, by = 'comuat') %>%
+    full_join(presenze14, by = 'comuat') %>%
+    full_join(popolazione09, by = 'comuat') %>%
+    full_join(anziani09, by = 'comuat') %>%
+    full_join(giovani09, by = 'comuat') %>%
+    full_join(stranieri09, by = 'comuat') %>%
+    full_join(agricoltura10, by = 'comuat') %>%
+    full_join(addettiInd07, by = 'comuat') %>%
+    full_join(presenze09, by = 'comuat') %>%
+    full_join(altitudine, by = c('comuat' = 'comu')) %>%
+    mutate(indVec14 = anziani14 / giovani14 * 100, 
+           indStra14 = stranieri14 / popolazione14 * 100,
+           indAgri14 = agricoltura14 / popolazione14 * 100, 
+           indInd12 = addettiInd12 / popolazione14 * 100,
+           indTur14 = presenze14 / popolazione14 * 100,
+           indVec09 = anziani09 / giovani09 * 100, 
+           indStra09 = stranieri09 / popolazione09 * 100,
+           indAgri10 = agricoltura10 / popolazione09 * 100, 
+           indInd07 = addettiInd07 / popolazione09 * 100,
+           indTur09 = presenze09 / popolazione09 * 100,
+           tasVarPop = (popolazione14 - popolazione09) / popolazione09,
+           tasVarVec = (indVec14-indVec09) / indVec09,
+           tasVarStra = (indStra14-indStra09) / indStra09,
+           tasVarAgri = (indAgri14- indAgri10) / indAgri10,
+           tasVarInd = (indInd12 - indInd07) / indInd07
+           #tasVarTur = (indTur14 - indTur09) / indTur09
+    ) %>%
+    select(comuat, 
+           altcentr, 
+           popolazione14, 
+           starts_with('ind'), 
+           starts_with('tasVar')
+    ) %>%
+    filter(comuat != 205)
+
+ind[is.na(ind)] <- 0
+```
+
+## Standardizzazione
+Standardizzazione data.frame contenente ultimo anno e variazioni, senza altitudine
+
+
+```r
+scaledInd.Var <- scale(select(ind, 
+                              3:8, 
+                              14:18
+)
+)
+rownames(scaledInd.Var) <- ind[, 1]
+```
+
+Standardizzazione data.frame contenente ultimo anno, senza altitudine
+
+
+```r
+scaledInd.Last <- scale(select(ind, 
+                               3:8
+)
+)
+
+rownames(scaledInd.Last) <- ind[, 1]
+```
+
+Standardizzazione data.frame contenente ultimo anno e variazioni, con altitudine
+
+
+```r
+scaledInd.Var.Alt <- scale(select(ind, 
+                                  2:8, 
+                                  14:18
+)
+)
+rownames(scaledInd.Var.Alt) <- ind[, 1]
+```
+
+Standardizzazione data.frame contenente ultimo anno, con altitudine
+
+
+```r
+scaledInd.Last.Alt <- scale(select(ind, 
+                                   2:8
+)
+)
+rownames(scaledInd.Last.Alt) <- ind[, 1]
 ```
 

@@ -23,10 +23,10 @@ odbcCloseAll()
 conn <- myConnection()
 
 popolazione <- sqlQuery(conn, 'SELECT anno, comu, SUM(compfam) valore
-                    FROM dati..dmdfaco 
-                    WHERE anno IN (2009,2014)
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY anno, comu' )
+                        FROM dati..dmdfaco 
+                        WHERE anno IN (2009,2014)
+                        AND comu BETWEEN 1 AND 998
+                        GROUP BY anno, comu' )
 
 anziani <- sqlQuery(conn, 'SELECT anno, comu, SUM(popolazi) valore
                     FROM dati..dmdeta 
@@ -41,39 +41,40 @@ giovani <- sqlQuery(conn, 'SELECT anno, comu, SUM(popolazi) valore
                     GROUP BY anno, comu' )
 
 stranieri <- sqlQuery(conn, 'SELECT anno, comu, SUM(numero) valore 
-                    FROM dati..dmdstreta 
-                    WHERE anno IN (2009,2014)
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY anno, comu' )
+                      FROM dati..dmdstreta 
+                      WHERE anno IN (2009,2014)
+                      AND comu BETWEEN 1 AND 998
+                      GROUP BY anno, comu' )
 
 agricoltura <- sqlQuery(conn, 'SELECT anno, comu, SUM(numero) valore 
-                    FROM dati..agdapiagen
-                    WHERE anno IN (2010,2014) AND sezione = 1
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY anno, comu' )
+                        FROM dati..agdapiagen
+                        WHERE anno IN (2010,2014) AND sezione = 1
+                        AND comu BETWEEN 1 AND 998
+                        GROUP BY anno, comu' )
 
 addettiInd <- sqlQuery(conn, 'SELECT anno, comu, SUM(add_ul) valore 
-                    FROM dati..ecdasiaul
-                    WHERE anno IN (2007,2012) AND Settore IN (1, 2)
-                    AND comu BETWEEN 1 AND 998
-                    GROUP BY anno, comu' )
+                       FROM dati..ecdasiaul
+                       WHERE anno IN (2007,2012) AND Settore IN (1, 2)
+                       AND comu BETWEEN 1 AND 998
+                       GROUP BY anno, comu' )
 
 presenze <- sqlQuery(conn, 'SELECT anno, comu, SUM(presenze) valore
-                    FROM dati..tudmotot
-                    WHERE anno IN (2009,2014) AND tuccompar IN (0, 1)
-                    GROUP BY anno, comu')
+                     FROM dati..tudmotot
+                     WHERE anno IN (2009,2014) AND tuccompar IN (0, 1)
+                     GROUP BY anno, comu')
 
 
 #' altitudine non è stata ancora salvata in DB, leggo da csv
 altitudine <- read.csv2('trdcgeo4.csv', 
                         header = T, 
                         stringsAsFactors = F, 
-                        sep = ';', 
+                        sep = ';',
+                        quote = '"',
+                        dec = ',',
                         colClasses = c('integer', 
                                        'character', 
                                        'numeric', 
-                                       'numeric'),
-                        dec = ','
+                                       'numeric')
 )
 
 odbcCloseAll()
@@ -168,7 +169,7 @@ ind <- data.frame(popolazione14) %>%
            popolazione14, 
            starts_with('ind'), 
            starts_with('tasVar')
-           ) %>%
+    ) %>%
     filter(comuat != 205)
 
 ind[is.na(ind)] <- 0

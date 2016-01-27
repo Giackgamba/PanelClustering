@@ -1,57 +1,20 @@
+# 
+In questa sezione si utilizza il metodo gerarchico per la creazione di
+cluster a partire dai quattro insiemi di dati
+
+
 
 
 ```r
 source('Preparazione dati.R')
 ```
 
-## Standardizzazione
-Standardizzazione data.frame contenente ultimo anno e variazioni, senza altitudine
-
-
-```r
-scaledInd.Var <- scale(select(ind, 
-                              3:8, 
-                              14:18
-)
-)
-rownames(scaledInd.Var) <- ind[, 1]
-```
-
-Standardizzazione data.frame contenente ultimo anno, senza altitudine
-
-
-```r
-scaledInd.Last <- scale(select(ind, 
-                               3:8
-)
-)
-
-rownames(scaledInd.Last) <- ind[, 1]
-```
-
-Standardizzazione data.frame contenente ultimo anno e variazioni, con altitudine
-
-
-```r
-scaledInd.Var.Alt <- scale(select(ind, 
-                                  2:8, 
-                                  14:18
-)
-)
-rownames(scaledInd.Var.Alt) <- ind[, 1]
-```
-
-Standardizzazione data.frame contenente ultimo anno, con altitudine
-
-
-```r
-scaledInd.Last.Alt <- scale(select(ind, 
-                                   2:8
-)
-)
-rownames(scaledInd.Last.Alt) <- ind[, 1]
-```
-
+Il file 'PreparazioneDati.R produce 5 dataset:
+* ind
+* scaledInd.Var
+* scaledInd.Last
+* scaledInd.Var.Alt
+* scaledInd.Last.Alt
 ## Matrici delle distanze
 
 Distanze utlimo anno e variazioni, plot
@@ -66,7 +29,7 @@ group.Var <- cutree(fit, k=5)
 rect.hclust(fit, k=5, border="red")
 ```
 
-![plot of chunk unnamed-chunk-6](figure/unnamed-chunk-6-1.png) 
+![plot of chunk unnamed-chunk-2](figure/unnamed-chunk-2-1.png) 
 
 Distanze utlimo anno, plot
 
@@ -80,7 +43,7 @@ group.Last <- cutree(fit, k=5)
 rect.hclust(fit, k=5, border="red")
 ```
 
-![plot of chunk unnamed-chunk-7](figure/unnamed-chunk-7-1.png) 
+![plot of chunk unnamed-chunk-3](figure/unnamed-chunk-3-1.png) 
 
 Distanze utlimo anno e variazioni, con altitudine, plot
 
@@ -94,7 +57,7 @@ group.Var.Alt <- cutree(fit, k=5)
 rect.hclust(fit, k=5, border="red")
 ```
 
-![plot of chunk unnamed-chunk-8](figure/unnamed-chunk-8-1.png) 
+![plot of chunk unnamed-chunk-4](figure/unnamed-chunk-4-1.png) 
 
 Distanze utlimo anno, con altitudine, plot
 
@@ -108,7 +71,7 @@ group.Last.Alt <- cutree(fit, k=5)
 rect.hclust(fit, k=5, border="red")
 ```
 
-![plot of chunk unnamed-chunk-9](figure/unnamed-chunk-9-1.png) 
+![plot of chunk unnamed-chunk-5](figure/unnamed-chunk-5-1.png) 
 
 aggiungo i cluster a data.frame iniziale
 
@@ -127,78 +90,55 @@ indNuoviComuni <- data.frame(ind,
            group.Last,
            group.Var.Alt,
            group.Last.Alt,
-           contains('14'), 
-           contains('10'), 
-           contains('12'), 
-           contains('tasVar'),
-           contains('centr')
+           matches('14|10|12|tasVar|centr')
     ) %>%
     arrange(comu)
 ```
 
-crea csv
+crea csv per uso in QGis
 
 
 ```r
 write.csv2(indNuoviComuni, 'clustersNuovi.csv', row.names = F)
 ```
 
-Calcola la media per ogni cluster
+Calcola il numero di comuni per ogni cluster
+
+Funziona per calcolare medie, numerosità di comuni e numerosità di popolazione
 
 
 ```r
-n.Last <- indNuoviComuni %>%
-    group_by(group.Last) %>%
-    summarise(count=n())
+sommario <- function(type) {
+    var_name <- as.symbol(paste0('group.', type))
+    
+    n <- indNuoviComuni %>%
+        group_by(group = eval(var_name)) %>%
+        summarise(count = n())
+    
+    avg <- indNuoviComuni %>%
+        select(group = matches(
+            paste0(as.character(var_name), '$')
+        ),
+        7:19) %>%
+        group_by(group) %>%
+        summarise_each(funs(mean))
+    
+    pop <- indNuoviComuni %>%
+        group_by(group = eval(var_name)) %>%
+        summarise(population = sum(popolazione14))
+    
+    res <- inner_join(n, pop, by = 'group') %>%
+        inner_join(avg, by = 'group') %>%
+        mutate_each(funs(myfuns = round(., 2)), -group, -count, -population)
+    
+    return(res)
+}
 
-n.Var <- indNuoviComuni %>%
-    group_by(group.Var) %>%
-    summarise(count=n())
 
-n.Last.Alt <- indNuoviComuni %>%
-    group_by(group.Last.Alt) %>%
-    summarise(count=n())
-
-n.Var.Alt <- indNuoviComuni %>%
-    group_by(group.Var.Alt) %>%
-    summarise(count=n())
-
-
-avgInd.Last <- indNuoviComuni %>%
-    select(-contains('descriz'), 
-           -contains('group.Var'),
-           -contains('comu')
-    ) %>%
-    group_by(group.Last) %>%
-    summarise_each(funs(mean)) %>%
-    bind_cols(n.Last['count'])
-
-avgInd.Var <- indNuoviComuni %>%
-    select(-contains('descriz'), 
-           -contains('group.Last'),
-           -contains('comu')
-    ) %>%
-    group_by(group.Var) %>%
-    summarise_each(funs(mean)) %>%
-    bind_cols(n.Var['count'])
-
-avgInd.Last.Alt <- indNuoviComuni %>%
-    select(-contains('descriz'), 
-           -contains('group.Var'),
-           -contains('comu')
-    ) %>%
-    group_by(group.Last.Alt) %>%
-    summarise_each(funs(mean)) %>%
-    bind_cols(n.Last.Alt['count'])
-
-avgInd.Var.Alt <- indNuoviComuni %>%
-    select(-contains('descriz'), 
-           -contains('group.Last'),
-           -contains('comu')
-    ) %>%
-    group_by(group.Var.Alt) %>%
-    summarise_each(funs(mean)) %>%
-    bind_cols(n.Var.Alt['count'])
+avgInd.Last <- sommario('Last')
+avgInd.Last.Alt <- sommario('Last.Alt')
+avgInd.Var <- sommario('Var')
+avgInd.Var.Alt <- sommario('Var.Alt')
 ```
 
 -----------------------------------
@@ -210,13 +150,13 @@ kable(avgInd.Last)
 
 
 
-| group.Last| group.Last.Alt| popolazione14| indVec14| indStra14|  indTur14| indAgri10|  indInd12|  tasVarPop| tasVarVec| tasVarStra| tasVarAgri|  tasVarInd|  altcentr| count|
-|----------:|--------------:|-------------:|--------:|---------:|---------:|---------:|---------:|----------:|---------:|----------:|----------:|----------:|---------:|-----:|
-|          1|       1.533333|     2900.6000| 123.9985| 11.884489|  1031.354|  2457.572| 15.493974|  0.0233456| 0.0844122|  0.0493035| -0.0503923| -0.1320699|  526.5111|    45|
-|          2|       2.944954|     1553.7523| 152.7792|  5.458783|  2383.715|  2935.272|  7.710476|  0.0065371| 0.1241347|  0.1192012| -0.0017274| -0.1111710|  724.8165|   109|
-|          3|       4.384615|     1580.9231| 124.6187|  7.256321| 32053.947|  1391.647|  7.655651|  0.0332541| 0.1802398|  0.3117538| -0.0901079| -0.0499700| 1084.6923|    13|
-|          4|       4.000000|    23287.0000| 132.6258| 11.140084|  3181.206|  1363.627| 12.664979|  0.0468635| 0.0424355|  0.1088444| -0.1915032| -0.1651305|  212.5000|     4|
-|          5|       5.000000|      483.8333| 345.1429|  1.864021|  2632.307|  1946.337|  7.453518| -0.0573293| 0.1842213|  0.2386001| -0.2147412|  0.1091768| 1053.3333|     6|
+| group| count| population| altcentr| popolazione14| indVec14| indStra14| indAgri14| indInd12| indTur14| indAgri10| tasVarPop| tasVarVec| tasVarStra| tasVarAgri| tasVarInd|
+|-----:|-----:|----------:|--------:|-------------:|--------:|---------:|---------:|--------:|--------:|---------:|---------:|---------:|----------:|----------:|---------:|
+|     1|    49|     133170|   587.24|       2717.76|   127.79|     11.20|      0.69|    14.49|  1999.08|      0.76|      0.03|      0.10|       0.10|      -0.12|     -0.12|
+|     2|    88|     137036|   741.00|       1557.23|   166.21|      4.31|      0.92|     8.09|  2381.52|      1.00|      0.00|      0.12|       0.12|        Inf|     -0.09|
+|     3|    13|      20552|  1084.69|       1580.92|   124.62|      7.26|      0.45|     7.66| 32053.95|      0.47|      0.03|      0.18|       0.31|      -0.11|     -0.05|
+|     4|     4|      93148|   212.50|      23287.00|   132.63|     11.14|      0.25|    12.66|  3181.21|      0.30|      0.05|      0.04|       0.11|      -0.13|     -0.17|
+|     5|    23|      32583|   653.70|       1416.65|   148.49|      9.25|      4.61|     6.98|   630.50|      4.80|     -0.01|      0.14|       0.04|      -0.05|     -0.17|
 
 ```r
 kable(avgInd.Last.Alt)
@@ -224,13 +164,13 @@ kable(avgInd.Last.Alt)
 
 
 
-| group.Last.Alt| group.Last| popolazione14| indVec14| indStra14|   indTur14| indAgri10|  indInd12| tasVarPop| tasVarVec| tasVarStra| tasVarAgri|  tasVarInd|  altcentr| count|
-|--------------:|----------:|-------------:|--------:|---------:|----------:|---------:|---------:|---------:|---------:|----------:|----------:|----------:|---------:|-----:|
-|              1|   1.608696|      2413.043| 132.5012|  8.687450|  1036.1861|  3303.109|  9.519201| 0.0177131| 0.1064667|  0.0546212| -0.0596802| -0.1430576|  520.5435|    92|
-|              2|   1.000000|      1504.000| 129.8615|  8.256360|   277.7686|  2279.953| 48.697707| 0.0222741| 0.0323682|  0.1477045|  0.0346430| -0.0184657|  452.7500|     4|
-|              3|   3.000000|      1148.500| 131.3755|  5.626736| 52904.9082|  1131.770|  6.514696| 0.0149319| 0.1291452|  0.4733730| -0.2872725| -0.0122628| 1223.7500|     4|
-|              4|   4.000000|     23287.000| 132.6258| 11.140084|  3181.2057|  1363.627| 12.664979| 0.0468635| 0.0424355|  0.1088444| -0.1915032| -0.1651305|  212.5000|     4|
-|              5|   2.301370|      1242.890| 173.8179|  5.212985|  5899.6057|  1955.779|  8.017797| 0.0010000| 0.1415985|  0.1806373|  0.0217165| -0.0653579|  938.6712|    73|
+| group| count| population| altcentr| popolazione14| indVec14| indStra14| indAgri14| indInd12| indTur14| indAgri10| tasVarPop| tasVarVec| tasVarStra| tasVarAgri| tasVarInd|
+|-----:|-----:|----------:|--------:|-------------:|--------:|---------:|---------:|--------:|--------:|---------:|---------:|---------:|----------:|----------:|---------:|
+|     1|    73|     180278|   527.51|       2469.56|   128.57|      9.25|      0.87|    13.09|  1477.00|      0.95|      0.03|      0.10|       0.05|      -0.09|     -0.13|
+|     2|    13|      20552|  1084.69|       1580.92|   124.62|      7.26|      0.45|     7.66| 32053.95|      0.47|      0.03|      0.18|       0.31|      -0.11|     -0.05|
+|     3|     4|      93148|   212.50|      23287.00|   132.63|     11.14|      0.25|    12.66|  3181.21|      0.30|      0.05|      0.04|       0.11|      -0.13|     -0.17|
+|     4|    66|      93316|   868.73|       1413.88|   179.44|      4.47|      0.76|     7.66|  3114.52|      0.82|     -0.01|      0.13|       0.19|        Inf|     -0.05|
+|     5|    21|      29195|   627.33|       1390.24|   146.45|      8.14|      5.11|     5.80|   411.94|      5.37|      0.00|      0.12|       0.00|      -0.05|     -0.20|
 
 --------------------------------
 
@@ -241,13 +181,13 @@ kable(avgInd.Var)
 
 
 
-| group.Var| group.Var.Alt| popolazione14| indVec14| indStra14|  indTur14| indAgri10|  indInd12|  tasVarPop| tasVarVec| tasVarStra| tasVarAgri|  tasVarInd|  altcentr| count|
-|---------:|-------------:|-------------:|--------:|---------:|---------:|---------:|---------:|----------:|---------:|----------:|----------:|----------:|---------:|-----:|
-|         1|      1.153846|     3824.3692| 123.6592| 10.615656|  3404.664|  2119.690| 13.584727|  0.0368447| 0.0659916|  0.1077875| -0.0609059| -0.1209070|  584.2923|    65|
-|         2|      2.219780|     1624.6154| 160.6814|  5.270097|  1787.038|  2925.815|  7.469497| -0.0045966| 0.1338818|  0.0357701| -0.0629784| -0.1659868|  704.8571|    91|
-|         3|      2.000000|     1130.3846| 142.7967|  6.404176| 26938.209|  1735.273|  7.134261|  0.0293298| 0.2329549|  0.8710949| -0.1618245| -0.0387095| 1100.4615|    13|
-|         4|      4.000000|      506.1667| 275.9635|  3.417057|  1840.360|  4674.272|  8.917746| -0.0404507| 0.1628838|  0.0038553| -0.1637051|  0.9312624|  904.8333|     6|
-|         5|      5.000000|     1166.5000| 141.1366|  3.266432|  3146.705|  5563.040| 11.795915| -0.0381582| 0.2345011| -0.2386331|  3.5470280| -0.4182268| 1056.5000|     2|
+| group| count| population| altcentr| popolazione14| indVec14| indStra14| indAgri14| indInd12| indTur14| indAgri10| tasVarPop| tasVarVec| tasVarStra| tasVarAgri| tasVarInd|
+|-----:|-----:|----------:|--------:|-------------:|--------:|---------:|---------:|--------:|--------:|---------:|---------:|---------:|----------:|----------:|---------:|
+|     1|    37|     192318|   489.92|       5197.78|   126.24|     12.57|      1.06|    14.95|  2662.45|      1.16|      0.03|      0.05|       0.09|      -0.18|     -0.17|
+|     2|   111|     192229|   741.79|       1731.79|   149.68|      5.84|      0.82|     9.08|  3743.82|      0.89|      0.01|      0.13|       0.06|        Inf|     -0.12|
+|     3|     8|       5475|  1069.00|        684.38|   166.05|      5.87|      0.44|     5.51| 27422.60|      0.51|      0.01|      0.14|       1.53|      -0.11|     -0.03|
+|     4|    15|      23430|   634.80|       1562.00|   145.64|      6.64|      5.23|     4.95|   463.92|      5.48|     -0.01|      0.14|      -0.10|      -0.04|     -0.31|
+|     5|     6|       3037|   904.83|        506.17|   275.96|      3.42|      2.59|     8.92|  1840.36|      2.46|     -0.04|      0.16|       0.00|       0.27|      0.93|
 
 ```r
 kable(avgInd.Var.Alt)
@@ -255,13 +195,13 @@ kable(avgInd.Var.Alt)
 
 
 
-| group.Var.Alt| group.Var| popolazione14| indVec14| indStra14|  indTur14| indAgri10|  indInd12|  tasVarPop| tasVarVec| tasVarStra| tasVarAgri|  tasVarInd|  altcentr| count|
-|-------------:|---------:|-------------:|--------:|---------:|---------:|---------:|---------:|----------:|---------:|----------:|----------:|----------:|---------:|-----:|
-|             1|  1.458716|      2307.147| 130.5067|  8.254187|  2219.591|  2659.207| 10.738575|  0.0254662| 0.0700870|  0.0641986| -0.0500374| -0.1402603|  614.5505|   109|
-|             2|  2.523810|      1287.476| 156.7079|  5.858700| 21147.755|  1896.113|  6.834128|  0.0206020| 0.1967786|  0.6484879| -0.0912753| -0.0815526| 1118.2381|    21|
-|             3|  1.000000|     23287.000| 132.6258| 11.140084|  3181.206|  1363.627| 12.664979|  0.0468635| 0.0424355|  0.1088444| -0.1915032| -0.1651305|  212.5000|     4|
-|             4|  2.292683|      1036.390| 198.1803|  5.025700|  1131.693|  2914.800|  8.397611| -0.0312370| 0.2082158|  0.0135940| -0.1131460| -0.0053147|  744.8049|    41|
-|             5|  5.000000|      1166.500| 141.1366|  3.266432|  3146.705|  5563.040| 11.795915| -0.0381582| 0.2345011| -0.2386331|  3.5470280| -0.4182268| 1056.5000|     2|
+| group| count| population| altcentr| popolazione14| indVec14| indStra14| indAgri14| indInd12| indTur14| indAgri10| tasVarPop| tasVarVec| tasVarStra| tasVarAgri| tasVarInd|
+|-----:|-----:|----------:|--------:|-------------:|--------:|---------:|---------:|--------:|--------:|---------:|---------:|---------:|----------:|----------:|---------:|
+|     1|    50|     237596|   389.66|       4751.92|   118.16|     10.17|      0.82|    13.73|  2141.77|      0.90|      0.04|      0.06|       0.05|      -0.14|     -0.18|
+|     2|    20|      21655|  1108.55|       1082.75|   148.00|      6.44|      0.43|     7.61| 20567.67|      0.49|      0.04|      0.16|       0.85|      -0.13|     -0.03|
+|     3|    85|     128275|   792.73|       1509.12|   159.78|      5.62|      0.96|     8.67|  2521.18|      1.05|     -0.01|      0.14|       0.01|        Inf|     -0.12|
+|     4|    16|      25926|   594.00|       1620.38|   146.81|      9.00|      5.07|     6.45|   479.47|      5.25|     -0.01|      0.12|       0.02|      -0.04|     -0.30|
+|     5|     6|       3037|   904.83|        506.17|   275.96|      3.42|      2.59|     8.92|  1840.36|      2.46|     -0.04|      0.16|       0.00|       0.27|      0.93|
 
 ------------------------------------
 

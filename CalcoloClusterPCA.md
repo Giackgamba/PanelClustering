@@ -1,28 +1,42 @@
+
+
+```r
 source('Preparazione dati.R')
+```
+
+# Analisi PCA
 
 
-#' # Analisi PCA
-
+```r
 ind_pca <- prcomp(as.data.frame(Ind.Last), scale = T)
 
 comp <- as.data.frame(ind_pca$x[,1:4])
+```
 
-#' ## K-Medie
+## K-Medie
+calcola i cluster
 
-#' calcola i cluster
 
+```r
 k <- kmeans(comp, 5, nstart=25, iter.max=1000)
 library(RColorBrewer)
 library(scales)
 palette(alpha(brewer.pal(9,'Set1'), 0.5))
 plot(comp, col=k$clust, pch=16)
+```
 
+![plot of chunk unnamed-chunk-3](figure/unnamed-chunk-3-1.png) 
 
+```r
 library(rgl)
 # Multi 3D plot
 plot3d(comp$PC1, comp$PC2, comp$PC3, col=k$clust, type = 's', size = 1)
+```
 
-#' Crea csv per uso in QGis
+Crea csv per uso in QGis
+
+
+```r
 clusters_pca <- data.frame(comu = ind[, 1], Ind.Last, k$cluster)
 write.csv2(clusters_pca, 'clusters_pca.csv', row.names = F)
 
@@ -34,17 +48,30 @@ avgs <- clusters_pca %>%
     summarize_each(funs(mean))
 
 avgs.K <- full_join(avgs, n.K)
+```
 
-#' ## Hierarchical
+```
+## Joining by: "k.cluster"
+```
 
+## Hierarchical
+
+
+```r
 d.PCA <- dist(comp, method = 'manhattan')
 fit <- hclust(d.PCA, method="ward.D2") 
 plot(fit)
 
 group.Last <- cutree(fit, k=5)
 rect.hclust(fit, k=5, border="red")
+```
 
-#' Crea csv per uso in QGis
+![plot of chunk unnamed-chunk-5](figure/unnamed-chunk-5-1.png) 
+
+Crea csv per uso in QGis
+
+
+```r
 cluster_pca_hier <- data.frame(comu = ind[, 1], Ind.Last, group.Last)
 write.csv2(cluster_pca_hier, 'clustersPCAHier.csv', row.names = F)
 
@@ -56,11 +83,46 @@ avgs <- cluster_pca_hier %>%
     summarize_each(funs(mean))
 
 avgs.H <- full_join(avgs, n.H)
+```
 
+```
+## Joining by: "group.Last"
+```
 
+```r
 population <- cluster_pca_hier %>%
     group_by(group.Last) %>%
     summarise(population = sum(popolazione14))
 
 avgs.H
+```
+
+```
+## Source: local data frame [5 x 9]
+## 
+##   group.Last      comu popolazione14 indVec14 indStra14 indAgri14
+##        (int)     (dbl)         (dbl)    (dbl)     (dbl)     (dbl)
+## 1          1  96.73333     10325.667 130.9415 10.575437 0.5416067
+## 2          2 125.57317      1601.329 172.2341  4.719327 0.9836342
+## 3          3 130.41667      1666.417 125.6154  7.320474 0.4557681
+## 4          4 136.50943      1724.811 126.5463  9.931030 0.9698461
+## 5          5 118.46667      1258.867 143.5070  8.005288 5.4883868
+## Variables not shown: indInd12 (dbl), indTur14 (dbl), count (int)
+```
+
+```r
 population
+```
+
+```
+## Source: local data frame [5 x 2]
+## 
+##   group.Last population
+##        (int)      (int)
+## 1          1     154885
+## 2          2     131309
+## 3          3      19997
+## 4          4      91415
+## 5          5      18883
+```
+

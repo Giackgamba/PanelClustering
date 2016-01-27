@@ -96,7 +96,8 @@ sommario <- function(type) {
         summarise(population = sum(popolazione14))
     
     res <- inner_join(n, pop, by = 'group') %>%
-        inner_join(avg, by = 'group')
+        inner_join(avg, by = 'group') %>%
+        mutate_each(funs(myfuns = round(., 2)), -group, -count, -population)
     
     return(res)
 }
