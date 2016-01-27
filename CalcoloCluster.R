@@ -1,40 +1,16 @@
+#' # 
+#' In questa sezione si utilizza il metodo gerarchico per la creazione di
+#' cluster a partire dai quattro insiemi di dati
+#' 
+#' 
 source('Preparazione dati.R')
 
-#' ## Standardizzazione
-#' Standardizzazione data.frame contenente ultimo anno e variazioni, senza altitudine
-scaledInd.Var <- scale(select(ind, 
-                              3:8, 
-                              14:18
-)
-)
-rownames(scaledInd.Var) <- ind[, 1]
-
-
-#' Standardizzazione data.frame contenente ultimo anno, senza altitudine
-scaledInd.Last <- scale(select(ind, 
-                               3:8
-)
-)
-
-rownames(scaledInd.Last) <- ind[, 1]
-
-
-#' Standardizzazione data.frame contenente ultimo anno e variazioni, con altitudine
-
-scaledInd.Var.Alt <- scale(select(ind, 
-                                  2:8, 
-                                  14:18
-)
-)
-rownames(scaledInd.Var.Alt) <- ind[, 1]
-
-
-#' Standardizzazione data.frame contenente ultimo anno, con altitudine
-scaledInd.Last.Alt <- scale(select(ind, 
-                                   2:8
-)
-)
-rownames(scaledInd.Last.Alt) <- ind[, 1]
+#' Il file 'PreparazioneDati.R produce 5 dataset:
+#' * ind
+#' * scaledInd.Var
+#' * scaledInd.Last
+#' * scaledInd.Var.Alt
+#' * scaledInd.Last.Alt
 
 
 #' ## Matrici delle distanze
@@ -89,71 +65,47 @@ indNuoviComuni <- data.frame(ind,
            group.Last,
            group.Var.Alt,
            group.Last.Alt,
-           contains('14'), 
-           contains('10'), 
-           contains('12'), 
-           contains('tasVar'),
-           contains('centr')
+           matches('14|10|12|tasVar|centr')
     ) %>%
     arrange(comu)
 
-#' crea csv
+#' crea csv per uso in QGis
 write.csv2(indNuoviComuni, 'clustersNuovi.csv', row.names = F)
 
-#' Calcola la media per ogni cluster
+#' Calcola il numero di comuni per ogni cluster
+#' 
 
-n.Last <- indNuoviComuni %>%
-    group_by(group.Last) %>%
-    summarise(count=n())
+#' Funziona per calcolare medie, numerosità di comuni e numerosità di popolazione
+sommario <- function(type) {
+    var_name <- as.symbol(paste0('group.', type))
+    
+    n <- indNuoviComuni %>%
+        group_by(group = eval(var_name)) %>%
+        summarise(count = n())
+    
+    avg <- indNuoviComuni %>%
+        select(group = matches(
+            paste0(as.character(var_name), '$')
+        ),
+        7:19) %>%
+        group_by(group) %>%
+        summarise_each(funs(mean))
+    
+    pop <- indNuoviComuni %>%
+        group_by(group = eval(var_name)) %>%
+        summarise(population = sum(popolazione14))
+    
+    res <- inner_join(n, pop, by = 'group') %>%
+        inner_join(avg, by = 'group')
+    
+    return(res)
+}
 
-n.Var <- indNuoviComuni %>%
-    group_by(group.Var) %>%
-    summarise(count=n())
 
-n.Last.Alt <- indNuoviComuni %>%
-    group_by(group.Last.Alt) %>%
-    summarise(count=n())
-
-n.Var.Alt <- indNuoviComuni %>%
-    group_by(group.Var.Alt) %>%
-    summarise(count=n())
-
-
-avgInd.Last <- indNuoviComuni %>%
-    select(-contains('descriz'), 
-           -contains('group.Var'),
-           -contains('comu')
-    ) %>%
-    group_by(group.Last) %>%
-    summarise_each(funs(mean)) %>%
-    bind_cols(n.Last['count'])
-
-avgInd.Var <- indNuoviComuni %>%
-    select(-contains('descriz'), 
-           -contains('group.Last'),
-           -contains('comu')
-    ) %>%
-    group_by(group.Var) %>%
-    summarise_each(funs(mean)) %>%
-    bind_cols(n.Var['count'])
-
-avgInd.Last.Alt <- indNuoviComuni %>%
-    select(-contains('descriz'), 
-           -contains('group.Var'),
-           -contains('comu')
-    ) %>%
-    group_by(group.Last.Alt) %>%
-    summarise_each(funs(mean)) %>%
-    bind_cols(n.Last.Alt['count'])
-
-avgInd.Var.Alt <- indNuoviComuni %>%
-    select(-contains('descriz'), 
-           -contains('group.Last'),
-           -contains('comu')
-    ) %>%
-    group_by(group.Var.Alt) %>%
-    summarise_each(funs(mean)) %>%
-    bind_cols(n.Var.Alt['count'])
+avgInd.Last <- sommario('Last')
+avgInd.Last.Alt <- sommario('Last.Alt')
+avgInd.Var <- sommario('Var')
+avgInd.Var.Alt <- sommario('Var.Alt')
 
 #' -----------------------------------
 
@@ -170,3 +122,5 @@ kable(avgInd.Var.Alt)
 #' ------------------------------------
 
 kable(select(trr, comuat, descriz))
+
+

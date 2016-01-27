@@ -2,11 +2,11 @@
 #' 
 #' Variabili considerate:
 #' * Dimensione demografiche (solo famiglie)
-#' * Indice di vecchiaia (solo famiglie)
+#' * Indice di vecchiaia
 #' * Percentuale di stranieri
-#' * Iscritti in I° sezione APIA
+#' * Iscritti in I' sezione APIA
 #' * Percentuali addetti in ASIAUL sett. industriale e costruzioni
-#' * Presenze turistiche
+#' * Presenze turistiche in strutture alberghiere e complementari
 #' 
 #' 
 
@@ -15,16 +15,11 @@ library(dplyr)
 library(tidyr)
 source('password.R')
 
-#' ### Elenco dei comuni ai confini 2016
-#+ echo=TRUE
-conn <- myConnection()
-
-trr <- sqlQuery(conn, 'SELECT * FROM dati..trrcomat') 
-
-
+#' ## Elenco dei comuni ai confini 2016
+trr <- sqlQuery(myConnection(), 'SELECT * FROM dati..trrcomat') 
 odbcCloseAll()
 
-#' ### Estrazione dei dati da SQL Server
+#' ## Estrazione dei dati da SQL Server
 conn <- myConnection()
 
 popolazione <- sqlQuery(conn, 'SELECT anno, comu, SUM(compfam) valore
@@ -69,7 +64,7 @@ presenze <- sqlQuery(conn, 'SELECT anno, comu, SUM(presenze) valore
                     GROUP BY anno, comu')
 
 
-# altitudine non è stata ancora salvata in DB, leggo da csv
+#' altitudine non è stata ancora salvata in DB, leggo da csv
 altitudine <- read.csv2('trdcgeo4.csv', 
                         header = T, 
                         stringsAsFactors = F, 
@@ -84,7 +79,7 @@ altitudine <- read.csv2('trdcgeo4.csv',
 odbcCloseAll()
 
 
-#' ### Trasformazioni ai nuovi confini dei dati assoluti
+#' ## Trasformazioni ai nuovi confini dei dati assoluti
 #' 
 as.nuoviConfini <- function(x, year) {
     name <- paste0(deparse(substitute(x)), substr(year, 3, 4))
@@ -99,7 +94,7 @@ as.nuoviConfini <- function(x, year) {
     return(x)
 }
 
-#' Dataset al 2009 (o primo anno)
+#' ### Dataset al 2009 (o primo anno)
 popolazione09 <- as.nuoviConfini(popolazione, 2009)
 
 anziani09 <- as.nuoviConfini(anziani, 2009)
@@ -115,7 +110,7 @@ addettiInd07 <- as.nuoviConfini(addettiInd, 2007)
 presenze09 <- as.nuoviConfini(presenze, 2009)
 
 
-#' Dataset al 2014 (o ultimo anno)
+#' ### Dataset al 2014 (o ultimo anno)
 popolazione14 <- as.nuoviConfini(popolazione, 2014)
 
 anziani14 <- as.nuoviConfini(anziani, 2014)
@@ -132,7 +127,9 @@ presenze14 <- as.nuoviConfini(presenze, 2014)
 
 
 #' ### Costruzione data.frame contenente indicatori
-#' Dal dataset elimino il comune di Trento (205) in quanto chiaro outlier che potrebbe dare problemi (hint: lì da) nella standardizzazione delle variabili
+#' Dal dataset elimino il comune di Trento (205) in quanto 
+#' chiaro outlier che potrebbe dare problemi (hint: li da) nella 
+#' standardizzazione delle variabili
 
 ind <- data.frame(popolazione14) %>%
     full_join(anziani14, by = 'comuat') %>%
@@ -151,12 +148,12 @@ ind <- data.frame(popolazione14) %>%
     full_join(altitudine, by = c('comuat' = 'comu')) %>%
     mutate(indVec14 = anziani14 / giovani14 * 100, 
            indStra14 = stranieri14 / popolazione14 * 100,
-           indAgri14 = agricoltura14 / superf * 100, 
+           indAgri14 = agricoltura14 / popolazione14 * 100, 
            indInd12 = addettiInd12 / popolazione14 * 100,
            indTur14 = presenze14 / popolazione14 * 100,
            indVec09 = anziani09 / giovani09 * 100, 
            indStra09 = stranieri09 / popolazione09 * 100,
-           indAgri10 = agricoltura10 / superf * 100, 
+           indAgri10 = agricoltura10 / popolazione09 * 100, 
            indInd07 = addettiInd07 / popolazione09 * 100,
            indTur09 = presenze09 / popolazione09 * 100,
            tasVarPop = (popolazione14 - popolazione09) / popolazione09,
@@ -176,4 +173,40 @@ ind <- data.frame(popolazione14) %>%
 
 ind[is.na(ind)] <- 0
 
+
+#' ## Standardizzazione
+#' Standardizzazione data.frame contenente ultimo anno e variazioni, senza altitudine
+scaledInd.Var <- scale(select(ind, 
+                              3:8, 
+                              14:18
+)
+)
+rownames(scaledInd.Var) <- ind[, 1]
+
+
+#' Standardizzazione data.frame contenente ultimo anno, senza altitudine
+scaledInd.Last <- scale(select(ind, 
+                               3:8
+)
+)
+
+rownames(scaledInd.Last) <- ind[, 1]
+
+
+#' Standardizzazione data.frame contenente ultimo anno e variazioni, con altitudine
+
+scaledInd.Var.Alt <- scale(select(ind, 
+                                  2:8, 
+                                  14:18
+)
+)
+rownames(scaledInd.Var.Alt) <- ind[, 1]
+
+
+#' Standardizzazione data.frame contenente ultimo anno, con altitudine
+scaledInd.Last.Alt <- scale(select(ind, 
+                                   2:8
+)
+)
+rownames(scaledInd.Last.Alt) <- ind[, 1]
 
