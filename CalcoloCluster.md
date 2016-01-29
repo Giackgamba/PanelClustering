@@ -9,6 +9,19 @@ cluster a partire dai quattro insiemi di dati
 source('Preparazione dati.R')
 ```
 
+```
+## 
+## Attaching package: 'dplyr'
+## 
+## The following objects are masked from 'package:stats':
+## 
+##     filter, lag
+## 
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+```
+
 Il file 'PreparazioneDati.R produce 5 dataset:
 * ind
 * scaledInd.Var

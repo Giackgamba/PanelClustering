@@ -62,5 +62,5 @@ population <- cluster_pca_hier %>%
     group_by(group.Last) %>%
     summarise(population = sum(popolazione14))
 
-avgs.H
-population
+kable(avgs.H)
+kable(population)
